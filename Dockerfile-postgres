@@ -1,3 +1,11 @@
+FROM node as builder
+
+WORKDIR /usr/src/app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
 FROM node:18-buster-slim
 
 # postgres client
@@ -7,8 +15,6 @@ RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add 
 RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main" | tee /etc/apt/sources.list.d/postgresql.list
 RUN apt -y update
 RUN apt -y install postgresql-client-14
-
-# mysql client
 
 ENV PG_HOST=""
 ENV PG_PORT=""
@@ -24,4 +30,15 @@ ENV IBM_IAM_SERVICE_ID=""
 ENV IBM_AUTH_ENDPOINT=""
 ENV IBM_ENDPOINT=""
 
-# TODO
+# Create app directory
+WORKDIR /usr/src/app
+
+# Install app dependencies
+COPY package*.json ./
+
+RUN npm ci --production
+
+COPY --from=builder /usr/src/app/dist ./dist
+
+EXPOSE 8080
+CMD [ "node", "dist/index.js" ]
